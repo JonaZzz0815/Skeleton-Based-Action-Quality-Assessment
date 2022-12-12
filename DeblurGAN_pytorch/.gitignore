@@ -1,0 +1,7 @@
+/pretrained_weights
+/data
+/aligned_data
+/saved
+/.idea
+*/__pycache__/
+/checkpoint-epoch300.pth
