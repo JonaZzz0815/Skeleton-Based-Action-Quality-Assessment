@@ -5,6 +5,29 @@ from torch.autograd import Variable
 
 from net.utils.tgcn import ConvTemporalGraphical
 from net.utils.graph import Graph
+class Regressor(nn.Module):
+    def __init__(self, dropout_ratio=0.5):
+        super().__init__()
+        self.dropout_ratio = dropout_ratio
+
+        self.layer1 = nn.Linear(256,128)
+        self.layer2 = nn.Linear(128,64)
+        self.layer3 = nn.Linear(64,1)
+
+        self.dropout1 = nn.Dropout(p=self.dropout_ratio)
+        self.dropout2 = nn.Dropout(p=self.dropout_ratio)
+
+        self.relu = nn.ReLU()
+
+    def forward(self, x):
+
+        x = self.relu(self.dropout1(self.layer1(x)))
+        x = self.relu(self.dropout2(self.layer2(x)))
+        x = self.layer3(x)
+        N,_,_,_ = x.size()
+        x = x.view(N)
+        return x
+
 
 class Model(nn.Module):
     r"""Spatial temporal graph convolutional networks.
@@ -27,7 +50,7 @@ class Model(nn.Module):
     """
 
     def __init__(self, in_channels, num_class, graph_args,
-                 edge_importance_weighting, **kwargs):
+                 edge_importance_weighting,dropout=0., **kwargs):
         super().__init__()
 
         # load graph
@@ -43,15 +66,15 @@ class Model(nn.Module):
         kwargs0 = {k: v for k, v in kwargs.items() if k != 'dropout'}
         self.st_gcn_networks = nn.ModuleList((
             st_gcn(in_channels, 64, kernel_size, 1, residual=False, **kwargs0),
-            st_gcn(64, 64, kernel_size, 1, **kwargs),
-            st_gcn(64, 64, kernel_size, 1, **kwargs),
-            st_gcn(64, 64, kernel_size, 1, **kwargs),
-            st_gcn(64, 128, kernel_size, 2, **kwargs),
-            st_gcn(128, 128, kernel_size, 1, **kwargs),
-            st_gcn(128, 128, kernel_size, 1, **kwargs),
-            st_gcn(128, 256, kernel_size, 2, **kwargs),
-            st_gcn(256, 256, kernel_size, 1, **kwargs),
-            st_gcn(256, 256, kernel_size, 1, **kwargs),
+            st_gcn(64, 64, kernel_size, 1, dropout=dropout, **kwargs),
+            st_gcn(64, 64, kernel_size, 1, dropout=dropout, **kwargs),
+            st_gcn(64, 64, kernel_size, 1, dropout=dropout, **kwargs),
+            st_gcn(64, 128, kernel_size, 2, dropout=dropout, **kwargs),
+            st_gcn(128, 128, kernel_size, 1, dropout=dropout, **kwargs),
+            st_gcn(128, 128, kernel_size, 1, dropout=dropout, **kwargs),
+            st_gcn(128, 256, kernel_size, 2, dropout=dropout, **kwargs),
+            st_gcn(256, 256, kernel_size, 1, dropout=dropout, **kwargs),
+            st_gcn(256, 256, kernel_size, 1, dropout=dropout, **kwargs),
         ))
 
         # initialize parameters for edge importance weighting
@@ -66,13 +89,7 @@ class Model(nn.Module):
         # fcn for prediction
         self.fcn = nn.Conv2d(256, num_class, kernel_size=1)
         # regression for assessment
-        self.reg = nn.Sequential(
-                nn.Linear(256,128),
-                nn.Linear(128,64),
-                nn.Linear(64,1),
-                nn.ReLU()
-
-        )
+        self.reg = Regressor(dropout_ratio=dropout)
     def forward(self, x):
 
         # data normalization

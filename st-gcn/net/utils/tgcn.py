@@ -41,7 +41,8 @@ class ConvTemporalGraphical(nn.Module):
                  t_stride=1,
                  t_padding=0,
                  t_dilation=1,
-                 bias=True):
+                 bias=True
+                        ):
         super().__init__()
 
         self.kernel_size = kernel_size

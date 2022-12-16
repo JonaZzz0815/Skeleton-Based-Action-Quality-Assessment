@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH -J test
+#SBATCH -J ext
 #SBATCH -p CS272
 #SBATCH --cpus-per-task=4
 #SBATCH --mail-type=all
@@ -7,14 +7,15 @@
 #SBATCH -N 1
 #SBATCH -t 24:00:00
 #SBATCH --gres=gpu:1
-#SBATCH --output=../test_deblur.out
-#SBATCH --error=../test_deblur.err
+#SBATCH --output=../test_deblur_2.out
+#SBATCH --error=../test_deblur_2.err
 
 #python deblur_image.py --blurred ../FineDiving_Dataset/Trimmed_Video_Frames/FINADiving_MTL_256s/03/1/ --deblurred ../deblur --resume checkpoint-epoch300.pth
 
-for i in $(seq 1 200)
-do 
-    echo $i;
-    python3 extract_skeleton.py
-done
+# for i in $(seq 1 200)
+# do 
+#     echo $i;
+#     python3 extract_skeleton.py
+# done
 
+python3 extract_skeleton.py

@@ -6,6 +6,7 @@ from DeblurGANPredictor import Deblurer
 import time
 from tqdm import tqdm
 import gc
+import argparse
 Deblur = Deblurer()
 
 def extract_from_img(img_path,detector,deblur=True)->list:
@@ -60,7 +61,7 @@ expected data form for skeleton
 def give_meaningless_nums(num:int)->list:
     return [str(-1) for i in range(num)]
 
-def extract_from_clip(clip_path, out_path)->None:
+def extract_from_clip(clip_path, out_path,skip_path)->None:
     # open the aimed_file
     out = open(out_path, mode="w")
     
@@ -74,18 +75,20 @@ def extract_from_clip(clip_path, out_path)->None:
     # out.write(f"{len(skeletons)} \n")
     # skip cnt
     cnt = 0
-    break_point = ""
+    skip_frames = []
     for img_name in sorted(img_names):
-        # write number of body in this frame
-        out.write(f"{1} \n")
 
         # extract all the skeletons
         img_path = os.path.join(clip_path,img_name)
         lmk = extract_from_img(img_path,detector)
         if lmk == None:
-            break_point = img_name
-            break
+            skip_frames.append(img_name)
+            continue
         cnt += 1
+        
+        # write number of body in this frame
+        out.write(f"{1} \n")
+
         # write the number of joints
         num_joint = len(lmk)
         out.write(f"{num_joint} \n")
@@ -106,10 +109,14 @@ def extract_from_clip(clip_path, out_path)->None:
     f.write(str(cnt)+"\n")
     f.writelines(a)
     f.close()
+    # write to a skip_frame
+    f = open(skip_path,"w")
+    f.writelines(skip_frames)
+    f.close()
 
     print(f"Done! Write to {out_path}")
-    print(f"Break at {break_point}")
     print(f"But skip with {len(img_names) - cnt}")
+    print(f"Write to {skip_path}")
 
 def mkdir(file_name):
     try:
@@ -119,48 +126,69 @@ def mkdir(file_name):
 
 if __name__ == "__main__":
     dataset_path = "../FineDiving_Dataset/Trimmed_Video_Frames/FINADiving_MTL_256s"
-    output_orgin = "../FineDiving_Skeleton"
+    output_orgin = "../FineDiving_Skeleton_3"
+    mkdir(output_orgin)
     # all competitions' name 
     competition_ids = sorted(os.listdir(dataset_path))
+    length = len(competition_ids)
+    parser= argparse.ArgumentParser()
+    parser.add_argument('--mode', type=int, default=0)
+    args = parser.parse_args()
+
+
+    # competition_ids = competition_ids[int(length/2)+ 2:]
     # loop to extract skeleton from video
 
-    for comp in tqdm(competition_ids):
-        # get the dir name of one comp
-        dir_name = os.path.join(dataset_path,comp)
+    # for comp in tqdm(competition_ids):
+    #     # get the dir name of one comp
+    #     dir_name = os.path.join(dataset_path,comp)
 
-        # make the output dir name of one comp
-        output_comp_dir = os.path.join(output_orgin,comp)
-        mkdir(output_comp_dir)
-        # get clips names
-        clips = os.listdir(dir_name)
+    #     # make the output dir name of one comp
+    #     output_comp_dir = os.path.join(output_orgin,comp)
+    #     mkdir(output_comp_dir)
+    #     # get clips names
+    #     clips = os.listdir(dir_name)
 
-        for clip in tqdm(clips):
-            clip_dir_name = os.path.join(dir_name,clip)
-            out_path = os.path.join(output_comp_dir,clip) + ".txt"
-            if os.path.exists(out_path):
-                continue
-            extract_from_clip(clip_dir_name,out_path)
-        print("#"*16 + f"Done extrating {comp}" + "#"*16 )
+    #     for clip in tqdm(clips):
+    #         clip_dir_name = os.path.join(dir_name,clip)
+    #         out_path = os.path.join(output_comp_dir,clip) + ".txt"
+    #         skip_path = os.path.join(output_comp_dir,clip) + "_skip.txt"
+    #         if os.path.exists(out_path):
+    #             continue
+    #         extract_from_clip(clip_dir_name,out_path,skip_path)
+    #     print("#"*16 + f"Done extrating {comp}" + "#"*16 )
+    
     # for left-over or empty txt
-    print("Checking the empty txt")
-    for comp in tqdm(competition_ids):
-        # get the dir name of one comp
-        dir_name = os.path.join(dataset_path,comp)
+    # print("Checking the empty txt")
+    # for comp in tqdm(competition_ids):
+    #     # get the dir name of one comp
+    #     dir_name = os.path.join(dataset_path,comp)
 
-        # make the output dir name of one comp
-        output_comp_dir = os.path.join(output_orgin,comp)
-        mkdir(output_comp_dir)
-        # get clips names
-        clips = os.listdir(dir_name)
+    #     # make the output dir name of one comp
+    #     output_comp_dir = os.path.join(output_orgin,comp)
+    #     mkdir(output_comp_dir)
+    #     # get clips names
+    #     clips = os.listdir(dir_name)
 
-        for clip in tqdm(clips):
-            clip_dir_name = os.path.join(dir_name,clip)
-            out_path = os.path.join(output_comp_dir,clip) + ".txt"
-            f = open(out_path,"r")
-            if len(f.readlines()) == 0:
-                f.close()
-                extract_from_clip(clip_dir_name,out_path)
-            else:
-                f.close()
+    #     for clip in tqdm(clips):
+    #         clip_dir_name = os.path.join(dir_name,clip)
+    #         out_path = os.path.join(output_comp_dir,clip) + ".txt"
+    #         f = open(out_path,"r")
+    #         if len(f.readlines()) == 0:
+    #             f.close()
+    #             extract_from_clip(clip_dir_name,out_path,skip_path)
+    #         else:
+    #             f.close()
+
+    print(f"Re-Process the empty txt")
+    empty_txt_path = "../empty_txt.txt"
+    f = open(empty_txt_path,"r")
+    for name in f.readlines():
+        comp_id,clip_id = name.split("/")[-2:]
+        clip_id = clip_id.split(".")[0]
+        clip_dir_name = os.path.join(dataset_path,comp_id,clip_id)
+        out_path = os.path.join(output_orgin,comp_id,clip_id) + ".txt"
+        skip_path = os.path.join(output_orgin,comp_id,clip_id) + "_skip.txt"
+        extract_from_clip(clip_dir_name,out_path,skip_path)
     print("Done!")
 

@@ -44,9 +44,9 @@ class REC_Processor(Processor):
         self.model = self.io.load_model(self.arg.model,
                                         **(self.arg.model_args))
         self.model.apply(weights_init)
-        # self.loss = nn.MSELoss()
+        self.loss = nn.MSELoss()
         # self.loss = nn.HuberLoss(delta=0.5)
-        self.loss = nn.SmoothL1Loss()
+        # self.loss = nn.SmoothL1Loss()
         # self.loss = nn.L1Loss()
         
     def load_optimizer(self):
@@ -54,7 +54,7 @@ class REC_Processor(Processor):
             self.optimizer = optim.SGD(
                 self.model.parameters(),
                 lr=self.arg.base_lr,
-                momentum=0.9,
+                momentum=0.85,
                 nesterov=self.arg.nesterov,
                 weight_decay=self.arg.weight_decay)
         elif self.arg.optimizer == 'Adam':
@@ -89,18 +89,29 @@ class REC_Processor(Processor):
         spearmanr_value = []
         relative_l2_value = []
 
-        for data, label in loader:
-
+        for group in loader:
+            if len(group) == 3:
+                data, label, diff= group
+                
+            else:
+                data, label, diff, rgb_data = group
+                rgb_data = rgb_data.float().to(self.dev)
             # get data
             data = data.float().to(self.dev)
             label = label.float().to(self.dev)
+            diff = diff.float().to(self.dev)
 
             # forward
-            output = self.model(data)
+            if len(group) == 3:
+                output = diff*self.model(data)
+            else:
+                output = diff*self.model(data, rgb_data)
+            
             loss = self.loss(output, label)
             # backward
             self.optimizer.zero_grad()
             loss.backward()
+            torch.nn.utils.clip_grad_norm_(parameters=self.model.parameters(), max_norm=10, norm_type=2)
             self.optimizer.step()
 
             # statistics
@@ -121,6 +132,8 @@ class REC_Processor(Processor):
 
             self.show_iter_info()
             self.meta_info['iter'] += 1
+            
+            torch.cuda.empty_cache()
 
         self.epoch_info['mean_loss']= np.mean(loss_value)
         self.epoch_info['mean_spearmanr_rho_loss'],self.epoch_info['mean_spearmanr_p_loss'] = np.mean(spearmanr_value,axis = 0)
@@ -138,15 +151,26 @@ class REC_Processor(Processor):
         result_frag = []
         label_frag = []
 
-        for data, label in loader:
-            
+        for group in loader:
+            if len(group) == 3:
+                data, label, diff = group
+                
+            else:
+                data, label, diff, rgb_data = group
+                rgb_data = rgb_data.float().to(self.dev)
             # get data
             data = data.float().to(self.dev)
-            label = label.long().to(self.dev)
+            label = label.float().to(self.dev)
+            diff = label.float().to(self.dev)
 
             # inference
             with torch.no_grad():
-                output = self.model(data)
+                if len(group) == 3:
+                    output = diff*self.model(data)
+                else:
+                    output = diff*self.model(data, rgb_data)
+                    
+            loss = self.loss(output, label)
             result_frag.append(output.data.cpu().numpy())
 
             # get loss
@@ -194,7 +218,7 @@ class REC_Processor(Processor):
         # optim
         parser.add_argument('--base_lr', type=float, default=0.01, help='initial learning rate')
         parser.add_argument('--step', type=int, default=[], nargs='+', help='the epoch where optimizer reduce the learning rate')
-        parser.add_argument('--optimizer', default='Adam', help='type of optimizer')
+        parser.add_argument('--optimizer', default='SGD', help='type of optimizer')
         parser.add_argument('--nesterov', type=str2bool, default=True, help='use nesterov or not')
         parser.add_argument('--weight_decay', type=float, default=0.0001, help='weight decay for optimizer')
         # endregion yapf: enable

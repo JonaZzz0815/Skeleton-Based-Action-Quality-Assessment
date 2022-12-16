@@ -1,15 +1,17 @@
 # ?????
-weights: ./work_dir/st_gcn/epoch0_model.pt
+weights: ./models/st_gcn.ntu-xsub.pt
 
 # feeder
-feeder: feeder.feeder_fds.Feeder_fds
+feeder: feeder.feeder_fds_with_clip.Feeder_fds_with_clip
 test_feeder_args:
   data_path: ./data/FineDiving/test_data.npy
   label_path: ./data/FineDiving/test_label.pkl
   diff_path: ./data/FineDiving/test_diff.pkl
+  rgb_path: ./data/FineDiving/test_rgb.npy
+
 
 # model
-model: net.st_gcn.Model
+model: net.st_gcn_with_rgb_i3d.Model
 model_args:
   in_channels: 3
   # ???????
@@ -23,5 +25,5 @@ model_args:
 # test 
 phase: test
 device: 0
-test_batch_size: 64
+test_batch_size: 32
 

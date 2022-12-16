@@ -63,7 +63,8 @@ class Processor(IO):
                 batch_size=self.arg.test_batch_size,
                 shuffle=False,
                 num_workers=self.arg.num_worker * torchlight.ngpu(
-                    self.arg.device))
+                    self.arg.device),
+                drop_last=True)
 
     def show_epoch_info(self):
         for k, v in self.epoch_info.items():

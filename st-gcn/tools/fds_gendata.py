@@ -33,8 +33,7 @@ def print_toolbar(rate, annotation=''):
 def end_toolbar():
     sys.stdout.write("\n")
 
-path = '../FineDiving_Dataset/Annotations/fine-grained_annotation_aqa.pkl'  # path='/root/……/aus_openface.pkl'   pkl文件所在路径
-
+path = "../FineDiving_Dataset/Annotations/FineDiving_fine-grained_annotation.pkl"  # path='/root/……/aus_openface.pkl'   pkl文件所在路径
 anno = open(path, 'rb')
 anno_data = pickle.load(anno)
 
@@ -42,22 +41,46 @@ anno_data = pickle.load(anno)
 def get_score(comp_id,clip_id):
     return anno_data[(comp_id,clip_id)]
 
+FineDiving_path = "../FineDiving_Dataset/Trimmed_Video_Frames/FINADiving_MTL_256s"
+def process_rgb(comp_id:str,clip_id:str):
+
+
+    dir_path = os.path.join(FineDiving_path,comp_id,clip_id)
+    imgs = sorted(os.listdir(dir_path))[-20:]
+    # print(type(imgs))
+    entry_clip  = [ os.path.join(dir_path,img) 
+                    for img in list(imgs)
+                    ]
+    return entry_clip
+        
 
 def gendata(data_path,
             out_path,
             ignored_sample_path=None,
             benchmark='xview',
             part='eval'):
-    sample_name, sample_label = [], []
+    sample_name, sample_label, sample_diff = [], [], []
+    sample_rgb = []
     f1 = open(data_path,"r")
     for line in f1.readlines():
-        filename,score = line.split()
+        filename,score,diff = line.split()
+
+        comp_id, clip_id = filename.split("/")[-2:]
+        clip_id = clip_id.split(".")[0]
+        sample_rgb.append(process_rgb(comp_id,clip_id))
+
         score = float(score) 
+        diff = float(diff) 
+
         sample_name.append(filename)
         sample_label.append(score)
+        sample_diff.append(diff)
 
     with open('{}/{}_label.pkl'.format(out_path, part), 'wb') as f:
         pickle.dump((sample_name, list(sample_label)), f)
+    
+    with open('{}/{}_diff.pkl'.format(out_path, part), 'wb') as f:
+        pickle.dump((sample_name, list(sample_diff)), f)
     # np.save('{}/{}_label.npy'.format(out_path, part), sample_label)
 
     fp = open_memmap(
@@ -66,13 +89,24 @@ def gendata(data_path,
         mode='w+',
         shape=(len(sample_label), 3, max_frame, num_joint, max_body))
 
+    error_path = "../error_txt.txt"
+    error_f = open(error_path,"w")
+
     for i, s in enumerate(sample_name):
         print_toolbar(i * 1.0 / len(sample_label),
                       '({:>5}/{:<5}) Processing {:>5}-{:<5} data: '.format(
                           i + 1, len(sample_name), benchmark, part))
+        
         data = read_xyz(
                     s, max_body=max_body, num_joint=num_joint)
+        
         fp[i, :, 0:data.shape[1], :, :] = data
+        # except
+        #     error_f.write(s+"\n")
+
+    
+    np.save('{}/{}_rgb.npy'.format(out_path, part), np.array(sample_rgb,dtype=object))
+
     end_toolbar()
 
 
@@ -86,8 +120,8 @@ if __name__ == '__main__':
         default='resource/NTU-RGB-D/samples_with_missing_skeletons.txt')
     parser.add_argument('--out_folder', default='data/FineDiving')
 
-    # part = ['train']
-    part = [ 'val', 'test','train']
+    # part = ['val']
+    part = ['test','train']
     arg = parser.parse_args()
 
     
