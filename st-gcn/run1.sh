@@ -10,10 +10,13 @@
 #SBATCH --output=../train_sk_rgb.out
 #SBATCH --error=../train_sk_rgb.err
 
-# config_path=./config/st_gcn/FineDiving-skeleton/train.yaml
+
 config_path=./config/st_gcn_with_rgb/FineDiving-skeleton/train.yaml
-# work_dir=./work_dir/st_gcn
 work_dir=./work_dir/st_gcn_with_rgb
+
+# config_path=./config/st_gcn_with_rgb/FineDiving-skeleton/train_mult.yaml
+# work_dir=./work_dir/st_gcn_with_rgb_mult
+
 
 python main.py recognition -c ${config_path} --work_dir ${work_dir}
 # python main.py recognition -c ./config/st_gcn_with_rgb/FineDiving-skeleton/train.yaml --work_dir ./work_dir/st_gcn_with_rgb

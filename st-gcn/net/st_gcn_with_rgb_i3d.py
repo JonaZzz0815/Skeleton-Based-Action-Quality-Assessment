@@ -7,13 +7,14 @@ from net.models import i3d
 from net.st_gcn import st_gcn
 from net.utils.tgcn import ConvTemporalGraphical
 from net.utils.graph import Graph
+from net.heads.regressor import Evaluator
 
 
 
 class Regressor(nn.Module):
 
 
-    def __init__(self,dropout_ratio=0.5):
+    def __init__(self,output_dim,model_type='single',num_judge=1,dropout_ratio=0.5):
         super().__init__()
         self.dropout_ratio = dropout_ratio
 
@@ -21,13 +22,8 @@ class Regressor(nn.Module):
         self.layer_v = nn.Linear(512,128)
 
         self.avg_pool = nn.AdaptiveAvgPool3d((1, 1, 1))
-        self.dropout1 = nn.Dropout(p=self.dropout_ratio)
-        self.dropout2 = nn.Dropout(p=self.dropout_ratio)
-
-        self.layer_merge1 = nn.Linear(256,64)
-        self.layer_merge2 = nn.Linear(64,1)
-        
-        self.relu = nn.ReLU()
+        self.dropout = nn.Dropout(p=self.dropout_ratio)
+        self.final = Evaluator(256,output_dim,model_type=model_type,num_judges=num_judge,dropout_ratio=dropout_ratio)
         
 
 
@@ -40,29 +36,22 @@ class Regressor(nn.Module):
         x_v = self.avg_pool(feature_v)
         N, _, _, _, _ = x_v.size()
 
-        x_v = x_v.view(N,1,1,-1)
+        x_v = x_v.view(N,-1)
         x_v = self.layer_v(x_v)
 
         # print(f"reg_s:{x_s.shape}")
         # print(f"reg_v:{x_v.shape}")
         
-        out = torch.cat((x_s,x_v),dim=3)
-        out = self.relu(self.dropout1(out))
+        out = torch.cat((x_s,x_v),dim=1)
+        # print(out.shape)
         del x_v
         del x_s
-        out = self.relu(self.dropout2(self.layer_merge1(out)))
-        out = self.layer_merge2(out)
-        N,_,_,_ = out.size()
-        out = out.view(N)
+        
+        out = self.final(out)
         
         return out
 
         
-
-
-       
-
-
 
 class Model(nn.Module):
     r"""Spatial temporal graph convolutional networks.
@@ -85,7 +74,7 @@ class Model(nn.Module):
     """
 
     def __init__(self, in_channels, num_class, graph_args,
-                 edge_importance_weighting, **kwargs):
+                 edge_importance_weighting,dropout=0.,num_judge=1,model_type='single', **kwargs):
         super().__init__()
 
         # load graph
@@ -125,7 +114,7 @@ class Model(nn.Module):
         self.i3d =i3d.load_backbone("resnet18")
         
         # regression for assessment
-        self.reg =  Regressor()
+        self.reg =  Regressor(num_class,model_type=model_type,num_judge=num_judge,dropout_ratio=dropout)
 
     def forward(self, x, x_v):
 
@@ -146,7 +135,7 @@ class Model(nn.Module):
         x = F.avg_pool2d(x, x.size()[2:])
         
         x = x.view(N, M, -1, 1, 1).mean(dim=1)
-        x = x.view(N,1,1,-1)
+        x = x.view(N,-1)
         
         # RGB clip feature extracting
         feature_v = self.i3d(x_v)

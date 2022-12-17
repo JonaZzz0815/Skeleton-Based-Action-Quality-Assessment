@@ -38,6 +38,10 @@ anno = open(path, 'rb')
 anno_data = pickle.load(anno)
 
 
+path = '../FineDiving_Dataset/Annotations/FineDiving_coarse_annotation.pkl' # path='/root/……/aus_openface.pkl'   pkl文件所在路径
+f = open(path, 'rb')
+simple_data = pickle.load(f)
+
 def get_score(comp_id,clip_id):
     return anno_data[(comp_id,clip_id)]
 
@@ -60,7 +64,7 @@ def gendata(data_path,
             benchmark='xview',
             part='eval'):
     sample_name, sample_label, sample_diff = [], [], []
-    sample_rgb = []
+    sample_rgb,sample_judge = [], []
     f1 = open(data_path,"r")
     for line in f1.readlines():
         filename,score,diff = line.split()
@@ -68,7 +72,8 @@ def gendata(data_path,
         comp_id, clip_id = filename.split("/")[-2:]
         clip_id = clip_id.split(".")[0]
         sample_rgb.append(process_rgb(comp_id,clip_id))
-
+        judge_score = np.array(simple_data[(comp_id,int(clip_id))]['judge_scores'])
+        sample_judge.append(judge_score)
         score = float(score) 
         diff = float(diff) 
 
@@ -104,8 +109,10 @@ def gendata(data_path,
         # except
         #     error_f.write(s+"\n")
 
-    
+    print(f"len(sample_rgb):{len(sample_rgb)}")
+    print(f"len(sample_judge):{len(sample_judge)}")
     np.save('{}/{}_rgb.npy'.format(out_path, part), np.array(sample_rgb,dtype=object))
+    np.save('{}/{}_judge.npy'.format(out_path, part), np.array(sample_judge,dtype=object))
 
     end_toolbar()
 

@@ -15,6 +15,7 @@ from torchvision import datasets, transforms
 import torch.utils.data as data
 
 from PIL import Image
+from . import tools
 from feeder.transforms import trans, trans2
 
 # visualization
@@ -53,20 +54,25 @@ class Feeder_fds_with_clip(torch.utils.data.Dataset):
                  label_path,
                  diff_path,
                  rgb_path,
+                 judge_path,
+                 judge,
                  random_choose=False,
                  random_move=False,
                  window_size=-1,
                  debug=False,
-                 mmap=True):
+                 mmap=True
+                #  judge="mult"
+                 ):
         self.debug = debug
         self.data_path = data_path
         self.label_path = label_path
         self.diff_path = diff_path
         self.rgb_path = rgb_path
+        self.judge_path = judge_path
         self.random_choose = random_choose
         self.random_move = random_move
         self.window_size = window_size
-
+        self.judge = judge
         self.load_data(mmap)
 
     def load_data(self, mmap):
@@ -96,6 +102,7 @@ class Feeder_fds_with_clip(torch.utils.data.Dataset):
 
         # load collection of clips of imgs
         self.rgb_col = np.load(self.rgb_path,allow_pickle=True)
+        self.judge_col = np.load(self.judge_path,allow_pickle=True)
 
 
     def __len__(self):
@@ -105,6 +112,7 @@ class Feeder_fds_with_clip(torch.utils.data.Dataset):
         # get data
         data_numpy = np.array(self.data[index])
         label = self.label[index]
+        judge = self.judge_col[index]
         data_rgb = self.rgb_col[index]
         diff = self.diff[index]
         # processing
@@ -115,6 +123,20 @@ class Feeder_fds_with_clip(torch.utils.data.Dataset):
         if self.random_move:
             data_numpy = tools.random_move(data_numpy)
         # ！！！！ here label is the score
+        # process the judge score to norm dist
+        if len(judge) == 7:
+            judge=sorted(judge)[2:5]
+        if self.judge == "single":
+            soft_label = tools.proc_single_label(label)
+        else:
+            soft_label = tools.proc_mult_label(judge)
+
         # load stacked img clip
         clip = get_clips(data_rgb)
-        return data_numpy,float(label),float(diff),clip
+        data = {}
+        data['skeleton'] = data_numpy
+        data['final_score'] = float(label)
+        data['soft_label'] = soft_label
+        data['difficulty'] = float(diff)
+        data['video_feat'] = clip
+        return data

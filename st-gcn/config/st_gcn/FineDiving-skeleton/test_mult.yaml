@@ -8,7 +8,7 @@ test_feeder_args:
   label_path: ./data/FineDiving/test_label.pkl
   diff_path: ./data/FineDiving/test_diff.pkl
   judge_path: ./data/FineDiving/test_judge.npy
-  judge: single
+  judge: mult
 
 
 # model
@@ -16,11 +16,11 @@ model: net.st_gcn.Model
 model_args:
   in_channels: 3
   # ???????
-  num_class: 101
+  num_class: 21
   dropout: 0.5
   edge_importance_weighting: True
-  num_judge: 1
-  model_type: single
+  num_judge: 3
+  model_type: mult
   graph_args:
     layout: 'GHUM'
     strategy: 'spatial'

@@ -1,49 +1,49 @@
-work_dir: ./work_dir/recognition/fds/ST_GCN
+work_dir: ./work_dir/recognition/fds/ST_GCN_RGB_mult
 
 # feeder
-feeder: feeder.feeder_fds.Feeder_fds
+feeder: feeder.feeder_fds_with_clip.Feeder_fds_with_clip
 train_feeder_args:
   data_path: ./data/FineDiving/train_data.npy
   label_path: ./data/FineDiving/train_label.pkl
   diff_path: ./data/FineDiving/train_diff.pkl
+  rgb_path: ./data/FineDiving/train_rgb.npy
   judge_path: ./data/FineDiving/train_judge.npy
-  judge: single
+  judge: mult
 
 test_feeder_args:
   data_path: ./data/FineDiving/test_data.npy
   label_path: ./data/FineDiving/test_label.pkl
   diff_path: ./data/FineDiving/test_diff.pkl
+  rgb_path: ./data/FineDiving/test_rgb.npy
   judge_path: ./data/FineDiving/test_judge.npy
-  judge: single
+  judge: mult
 
 
 
 # model
-model: net.st_gcn.Model
+model: net.st_gcn_with_rgb_i3d.Model
 model_args:
   in_channels: 3
   # ????????
-  num_class: 101
-  dropout: 0.2
+  num_class: 21
+  dropout: 0.5
   edge_importance_weighting: True
-  num_judge: 1
-  model_type: single
+  num_judge: 3
+  model_type: mult
   graph_args:
     layout: 'GHUM'
     strategy: 'spatial'
 
 #optim
-optimizer: SGD
 weight_decay: 0.0001
-base_lr: 0.1
+base_lr: 0.0005
 step: [10, 50]
 
 # training
 device: [0]
-batch_size: 64 
-test_batch_size: 64
-num_epoch: 200
+batch_size: 16
+test_batch_size: 16
+num_epoch: 100
 
 
-# weights: ./work_dir/st_gcn/epoch0_model_reg.pt
 

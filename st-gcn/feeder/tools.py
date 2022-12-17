@@ -1,5 +1,6 @@
 import numpy as np
 import random
+from scipy import stats
 
 
 def downsample(data_numpy, step, random_sample=True):
@@ -198,3 +199,19 @@ def calculate_recall_precision(label, score):
         recall.append(true_p * 1.0 / (true_p + false_n))
 
     return precision, recall
+
+
+def proc_single_label(score):
+    # Scores of MTL dataset ranges from 0 to 114.8, we normalize it into 0~100
+    tmp = stats.norm.pdf(np.arange(101), loc=score * (101-1) / 114.8, scale=5).astype(
+        np.float32)
+    single = tmp / tmp.sum()
+    return single
+
+def proc_mult_label(judge_scores):    
+    # Each judge choose a score from [0, 0.5, ..., 9.5, 10], we normalize it into 0~20
+    tmp = [stats.norm.pdf(np.arange(21), loc=judge_score * (21-1) / 10, scale=5).astype(np.float32)
+            for judge_score in judge_scores]
+    tmp = np.stack(tmp)
+    judges = tmp / tmp.sum(axis=-1, keepdims=True)  # 7x21
+    return judges

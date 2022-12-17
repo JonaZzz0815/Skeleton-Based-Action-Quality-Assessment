@@ -7,11 +7,17 @@ train_feeder_args:
   label_path: ./data/FineDiving/train_label.pkl
   diff_path: ./data/FineDiving/train_diff.pkl
   rgb_path: ./data/FineDiving/train_rgb.npy
+  judge_path: ./data/FineDiving/train_judge.npy
+  judge: single
+
 test_feeder_args:
   data_path: ./data/FineDiving/test_data.npy
   label_path: ./data/FineDiving/test_label.pkl
   diff_path: ./data/FineDiving/test_diff.pkl
   rgb_path: ./data/FineDiving/test_rgb.npy
+  judge_path: ./data/FineDiving/test_judge.npy
+  judge: single
+
 
 
 # model
@@ -19,9 +25,11 @@ model: net.st_gcn_with_rgb_i3d.Model
 model_args:
   in_channels: 3
   # ????????
-  num_class: 60
+  num_class: 101
   dropout: 0.5
   edge_importance_weighting: True
+  num_judge: 1
+  model_type: single
   graph_args:
     layout: 'GHUM'
     strategy: 'spatial'

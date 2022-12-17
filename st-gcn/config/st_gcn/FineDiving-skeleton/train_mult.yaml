@@ -1,4 +1,4 @@
-work_dir: ./work_dir/recognition/fds/ST_GCN
+work_dir: ./work_dir/recognition/fds/ST_GCN_mult
 
 # feeder
 feeder: feeder.feeder_fds.Feeder_fds
@@ -7,14 +7,14 @@ train_feeder_args:
   label_path: ./data/FineDiving/train_label.pkl
   diff_path: ./data/FineDiving/train_diff.pkl
   judge_path: ./data/FineDiving/train_judge.npy
-  judge: single
+  judge: mult
 
 test_feeder_args:
   data_path: ./data/FineDiving/test_data.npy
   label_path: ./data/FineDiving/test_label.pkl
   diff_path: ./data/FineDiving/test_diff.pkl
   judge_path: ./data/FineDiving/test_judge.npy
-  judge: single
+  judge: mult
 
 
 
@@ -23,11 +23,11 @@ model: net.st_gcn.Model
 model_args:
   in_channels: 3
   # ????????
-  num_class: 101
+  num_class: 21
   dropout: 0.2
   edge_importance_weighting: True
-  num_judge: 1
-  model_type: single
+  num_judge: 3
+  model_type: mult
   graph_args:
     layout: 'GHUM'
     strategy: 'spatial'

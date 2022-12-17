@@ -34,18 +34,25 @@ class Feeder_fds(torch.utils.data.Dataset):
                  data_path,
                  label_path,
                  diff_path,
+                 judge_path,
+                 judge,
                  random_choose=False,
                  random_move=False,
                  window_size=-1,
                  debug=False,
-                 mmap=True):
+                 mmap=True
+                #  judge="mult"
+                 ):
         self.debug = debug
         self.data_path = data_path
         self.label_path = label_path
         self.diff_path = diff_path
+        self.judge_path = judge_path
         self.random_choose = random_choose
         self.random_move = random_move
         self.window_size = window_size
+        self.judge = judge
+
 
         self.load_data(mmap)
 
@@ -62,7 +69,7 @@ class Feeder_fds(torch.utils.data.Dataset):
         # load data
         if mmap:
             self.data = np.load(self.data_path, mmap_mode='r')
-        else:
+        else: 
             self.data = np.load(self.data_path)
             
         if self.debug:
@@ -72,6 +79,7 @@ class Feeder_fds(torch.utils.data.Dataset):
             self.sample_name = self.sample_name[0:100]
 
         self.N, self.C, self.T, self.V, self.M = self.data.shape
+        self.judge_col = np.load(self.judge_path,allow_pickle=True)
 
     def __len__(self):
         return len(self.label)
@@ -80,6 +88,7 @@ class Feeder_fds(torch.utils.data.Dataset):
         # get data
         data_numpy = np.array(self.data[index])
         label = self.label[index]
+        judge = self.judge_col[index]
         diff = self.diff[index]
         
         # processing
@@ -90,4 +99,16 @@ class Feeder_fds(torch.utils.data.Dataset):
         if self.random_move:
             data_numpy = tools.random_move(data_numpy)
         # ！！！！ here label is the score
-        return data_numpy,float(label),float(diff)
+        if len(judge) > 3:
+            judge=sorted(judge)[2:5]
+        if self.judge == "single":
+            soft_label = tools.proc_single_label(label)
+        else:
+            soft_label = tools.proc_mult_label(judge)
+        
+        data = {}
+        data['skeleton'] = data_numpy
+        data['final_score'] = float(label)
+        data['soft_label'] = soft_label
+        data['difficulty'] = float(diff)
+        return data

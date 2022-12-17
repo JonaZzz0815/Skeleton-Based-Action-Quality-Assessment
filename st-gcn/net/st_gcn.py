@@ -5,6 +5,7 @@ from torch.autograd import Variable
 
 from net.utils.tgcn import ConvTemporalGraphical
 from net.utils.graph import Graph
+from net.heads.regressor import Evaluator
 class Regressor(nn.Module):
     def __init__(self, dropout_ratio=0.5):
         super().__init__()
@@ -50,7 +51,7 @@ class Model(nn.Module):
     """
 
     def __init__(self, in_channels, num_class, graph_args,
-                 edge_importance_weighting,dropout=0., **kwargs):
+                 edge_importance_weighting,dropout=0.,num_judge=1, model_type='single', **kwargs):
         super().__init__()
 
         # load graph
@@ -89,7 +90,7 @@ class Model(nn.Module):
         # fcn for prediction
         self.fcn = nn.Conv2d(256, num_class, kernel_size=1)
         # regression for assessment
-        self.reg = Regressor(dropout_ratio=dropout)
+        self.reg = Evaluator(256, num_class,model_type=model_type,num_judges=num_judge,dropout_ratio=dropout)
     def forward(self, x):
 
         # data normalization
@@ -115,7 +116,7 @@ class Model(nn.Module):
         # x = x.view(x.size(0), -1)
         # regression
         
-        x = x.view(N,1,1,-1)
+        x = x.view(N, -1)
         x = self.reg(x)
 
         return x

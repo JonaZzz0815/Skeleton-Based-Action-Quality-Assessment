@@ -34,7 +34,27 @@ def weights_init(m):
     elif classname.find('BatchNorm') != -1:
         m.weight.data.normal_(1.0, 0.02)
         m.bias.data.fill_(0)
+        
+def compute_score(model_type, probs, diff):
+    if model_type == 'single':
+        pred = probs.argmax(dim=-1) * (114.8 / (101 - 1))
+    else:
+        # calculate expectation & denormalize & sort
+        judge_scores_pred = torch.stack([prob.argmax(dim=-1) * 10. / (21 - 1)
+                                         for prob in probs], dim=1).sort()[0]  # N, 7
+        # keep the median 3 scores to get final score according to the rule of diving
+        pred = torch.sum(judge_scores_pred, dim=1) * diff.cuda()
+    return pred
 
+def compute_loss(model_type, criterion, probs, data):
+    
+    if model_type == 'single':
+        loss = criterion(torch.log(probs), data)
+    else:
+        loss = sum([criterion(torch.log(probs[i]), data[:, i].cuda()) for i in range(3)])
+    return loss
+
+KLD = nn.KLDivLoss(reduction='batchmean')
 class REC_Processor(Processor):
     """
         Processor for Skeleton-based Action Recgnition
@@ -44,7 +64,9 @@ class REC_Processor(Processor):
         self.model = self.io.load_model(self.arg.model,
                                         **(self.arg.model_args))
         self.model.apply(weights_init)
-        self.loss = nn.MSELoss()
+        self.loss = nn.KLDivLoss(reduction='batchmean')
+        self.model_type = 'single'
+        # self.loss = nn.MSELoss()
         # self.loss = nn.HuberLoss(delta=0.5)
         # self.loss = nn.SmoothL1Loss()
         # self.loss = nn.L1Loss()
@@ -87,27 +109,31 @@ class REC_Processor(Processor):
         loader = self.data_loader['train']
         loss_value = []
         spearmanr_value = []
+        l2_value = []
         relative_l2_value = []
 
         for group in loader:
-            if len(group) == 3:
-                data, label, diff= group
+            if len(group) == 4 :
+                data, label, soft_label, diff = group['skeleton'],group['final_score'],group['soft_label'],group['difficulty']
                 
             else:
-                data, label, diff, rgb_data = group
+                data, label, soft_label, diff, rgb_data = group['skeleton'],group['final_score'],group['soft_label'],group['difficulty'],group['video_feat']
                 rgb_data = rgb_data.float().to(self.dev)
             # get data
             data = data.float().to(self.dev)
             label = label.float().to(self.dev)
+            soft_label = soft_label.float().to(self.dev)
             diff = diff.float().to(self.dev)
 
             # forward
-            if len(group) == 3:
-                output = diff*self.model(data)
+            if len(group) == 4:
+                probs = self.model(data)
             else:
-                output = diff*self.model(data, rgb_data)
+                probs = self.model(data, rgb_data)
             
-            loss = self.loss(output, label)
+            preds = compute_score(self.model_type,probs,diff)
+            loss = compute_loss(self.model_type, self.loss, probs, soft_label)
+            
             # backward
             self.optimizer.zero_grad()
             loss.backward()
@@ -119,15 +145,17 @@ class REC_Processor(Processor):
             self.iter_info['lr'] = '{:.6f}'.format(self.lr)
             loss_value.append(self.iter_info['loss'])
 
-            output = output.squeeze().cpu().detach().numpy()
+            preds = preds.squeeze().cpu().detach().numpy()
             label = label.cpu().detach().numpy()
           
-            rho, p = stats.spearmanr(output , label )
+            rho, p = stats.spearmanr(preds , label )
             spearmanr_value.append([rho,p])
                 
-            L2 = np.power(output - label, 2).sum() / label.shape[0]
-            RL2 = np.power((output - label) / (label.max() - label.min()), 2).sum() / \
+            L2 = np.power(preds - label, 2).sum() / label.shape[0]
+            RL2 = np.power((preds - label) / (label.max() - label.min()), 2).sum() / \
                     label.shape[0]
+
+            l2_value.append(L2)
             relative_l2_value.append(RL2)
 
             self.show_iter_info()
@@ -137,6 +165,7 @@ class REC_Processor(Processor):
 
         self.epoch_info['mean_loss']= np.mean(loss_value)
         self.epoch_info['mean_spearmanr_rho_loss'],self.epoch_info['mean_spearmanr_p_loss'] = np.mean(spearmanr_value,axis = 0)
+        self.epoch_info['mean_L2_loss']= np.mean(l2_value)
         self.epoch_info['mean_RL2_loss']= np.mean(relative_l2_value)
         self.show_epoch_info()
         self.io.print_timer()
@@ -148,45 +177,50 @@ class REC_Processor(Processor):
         loss_value = []
         spearmanr_value = []
         relative_l2_value = []
+        l2_value = []
         result_frag = []
         label_frag = []
 
         for group in loader:
-            if len(group) == 3:
-                data, label, diff = group
-                
+            if len(group) == 4:
+                data, label, soft_label, diff = group['skeleton'],group['final_score'],group['soft_label'],group['difficulty']
+
             else:
-                data, label, diff, rgb_data = group
+                data, label, soft_label, diff, rgb_data = group['skeleton'],group['final_score'],group['soft_label'],group['difficulty'],group['video_feat']
                 rgb_data = rgb_data.float().to(self.dev)
             # get data
             data = data.float().to(self.dev)
             label = label.float().to(self.dev)
+            soft_label = soft_label.float().to(self.dev)
             diff = label.float().to(self.dev)
 
             # inference
             with torch.no_grad():
-                if len(group) == 3:
-                    output = diff*self.model(data)
+                if len(group) == 4:
+                    probs = self.model(data)
                 else:
-                    output = diff*self.model(data, rgb_data)
-                    
-            loss = self.loss(output, label)
-            result_frag.append(output.data.cpu().numpy())
+                    probs = self.model(data, rgb_data)
+            
+            preds = compute_score(self.model_type,probs,diff)
+            loss = compute_loss(self.model_type, self.loss, probs, soft_label)
+            result_frag.append(preds.data.cpu().numpy())
 
             # get loss
             if evaluation:
-                loss = self.loss(output, label)
+                loss = compute_loss(self.model_type, self.loss, probs, soft_label)
                 loss_value.append(loss.item())
 
-                output = output.squeeze().cpu().detach().numpy()
+                preds = preds.squeeze().cpu().detach().numpy()
                 label = label.cpu().detach().numpy() 
 
-                rho, p = stats.spearmanr(output , label )
+                rho, p = stats.spearmanr(preds , label )
                 spearmanr_value.append([rho,p])
                 
-                L2 = np.power(output - label, 2).sum() / label.shape[0]
-                RL2 = np.power((output - label) / (label.max() - label.min()), 2).sum() / \
+                L2 = np.power(preds - label, 2).sum() / label.shape[0]
+                RL2 = np.power((preds - label) / (label.max() - label.min()), 2).sum() / \
                     label.shape[0]
+
+                l2_value.append(L2)
                 relative_l2_value.append(RL2)
                 label_frag.append(label)
 
@@ -195,6 +229,7 @@ class REC_Processor(Processor):
             self.label = np.concatenate(label_frag)
             self.epoch_info['mean_loss']= np.mean(loss_value)
             self.epoch_info['mean_spearmanr_rho_loss'],self.epoch_info['mean_spearmanr_p_loss'] = np.mean(spearmanr_value,axis = 0)
+            self.epoch_info['mean_L2_loss']= np.mean(l2_value)
             self.epoch_info['mean_RL2_loss']= np.mean(relative_l2_value)
             self.show_epoch_info()
 
