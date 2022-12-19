@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH -J st_sin
+#SBATCH -J test
 #SBATCH -p CS272
 #SBATCH --cpus-per-task=4
 #SBATCH --mail-type=all
@@ -7,8 +7,8 @@
 #SBATCH -N 1
 #SBATCH -t 24:00:00
 #SBATCH --gres=gpu:1
-#SBATCH --output=../result_txt/st_gcn/train_sk_3.out
-#SBATCH --error=../result_txt/st_gcn/train_sk_3.err
+#SBATCH --output=../test.out
+#SBATCH --error=../test.err
 #SBATCH --exclude=ai_gpu[08-25]
 
 
@@ -20,7 +20,7 @@
 
 
 
-config_path=./config/st_gcn/FineDiving-skeleton/train.yaml
+config_path=./config/st_gcn/FineDiving-skeleton/test.yaml
 work_dir=./work_dir/st_gcn
 
 # config_path=./config/st_gcn/FineDiving-skeleton/train_mult.yaml

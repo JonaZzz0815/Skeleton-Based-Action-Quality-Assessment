@@ -20,11 +20,13 @@ test_feeder_args:
 
 # model
 model: net.st_gcn.Model
+judge_type: mult
+loss_type: mix1
 model_args:
   in_channels: 3
   # ????????
   num_class: 21
-  dropout: 0.2
+  dropout: 0.5
   edge_importance_weighting: True
   num_judge: 3
   model_type: mult
@@ -42,8 +44,7 @@ step: [10, 50]
 device: [0]
 batch_size: 64 
 test_batch_size: 64
-num_epoch: 200
+num_epoch: 100
 
-
-# weights: ./work_dir/st_gcn/epoch0_model_reg.pt
+weights: ./work_dir/st_gcn_mult/epoch0_model.pt
 

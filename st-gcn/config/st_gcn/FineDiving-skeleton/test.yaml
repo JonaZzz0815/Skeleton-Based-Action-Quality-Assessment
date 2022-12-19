@@ -1,5 +1,5 @@
 # ?????
-# weights: ./work_dir/st_gcn/epoch0_model_reg.pt
+weights: ./work_dir/st_gcn/epoch0_model.pt
 
 # feeder
 feeder: feeder.feeder_fds.Feeder_fds
@@ -13,6 +13,8 @@ test_feeder_args:
 
 # model
 model: net.st_gcn.Model
+judge_type: single
+loss_type: mix1
 model_args:
   in_channels: 3
   # ???????
@@ -27,6 +29,6 @@ model_args:
 
 # test 
 phase: test
-device: 0
+device: [0]
 test_batch_size: 64
 

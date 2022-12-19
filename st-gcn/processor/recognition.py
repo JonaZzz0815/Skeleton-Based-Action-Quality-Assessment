@@ -64,9 +64,10 @@ class REC_Processor(Processor):
         self.model = self.io.load_model(self.arg.model,
                                         **(self.arg.model_args))
         self.model.apply(weights_init)
-        self.loss = nn.KLDivLoss(reduction='batchmean')
-        self.model_type = 'single'
-        # self.loss = nn.MSELoss()
+        # self.loss = nn.KLDivLoss(reduction='batchmean')
+        self.model_type = self.arg.judge_type
+        self.loss_type = self.arg.loss_type
+        self.loss = nn.MSELoss()
         # self.loss = nn.HuberLoss(delta=0.5)
         # self.loss = nn.SmoothL1Loss()
         # self.loss = nn.L1Loss()
@@ -132,8 +133,17 @@ class REC_Processor(Processor):
                 probs = self.model(data, rgb_data)
             
             preds = compute_score(self.model_type,probs,diff)
-            loss = compute_loss(self.model_type, self.loss, probs, soft_label)
-            
+            loss = compute_loss(self.model_type, KLD, probs, soft_label)
+            if self.loss_type == "mix1":
+                loss = 20.*loss + 0.1*self.loss(preds,label)
+            elif self.loss_type == "mix2":
+                loss = 10.*loss + 0.1*self.loss(preds,label)
+            elif self.loss_type == "mse":
+                loss =0.*loss + self.loss(preds,label)
+            else: # self.loss_type == "mse"
+                loss = loss
+
+
             # backward
             self.optimizer.zero_grad()
             loss.backward()
@@ -162,7 +172,7 @@ class REC_Processor(Processor):
             self.meta_info['iter'] += 1
             
             torch.cuda.empty_cache()
-
+        self.epoch_info['loss_type']= self.loss_type
         self.epoch_info['mean_loss']= np.mean(loss_value)
         self.epoch_info['mean_spearmanr_rho_loss'],self.epoch_info['mean_spearmanr_p_loss'] = np.mean(spearmanr_value,axis = 0)
         self.epoch_info['mean_L2_loss']= np.mean(l2_value)
@@ -202,12 +212,33 @@ class REC_Processor(Processor):
                     probs = self.model(data, rgb_data)
             
             preds = compute_score(self.model_type,probs,diff)
-            loss = compute_loss(self.model_type, self.loss, probs, soft_label)
+            loss = compute_loss(self.model_type, KLD, probs, soft_label)
+            
+            torch.cuda.empty_cache()
+
+            if self.loss_type == "mix1":
+                loss = 20.*loss + 0.1*self.loss(preds,label)
+            elif self.loss_type == "mix2":
+                loss = 10.*loss + 0.1*self.loss(preds,label)
+            elif self.loss_type == "mse":
+                loss =0.*loss + self.loss(preds,label)
+            else: # self.loss_type == "mse"
+                loss = loss
+            
             result_frag.append(preds.data.cpu().numpy())
 
             # get loss
             if evaluation:
                 loss = compute_loss(self.model_type, self.loss, probs, soft_label)
+                if self.loss_type == "mix1":
+                    loss = 20.*loss + 0.1*self.loss(preds,label)
+                elif self.loss_type == "mix2":
+                    loss = 10.*loss + 0.1*self.loss(preds,label)
+                elif self.loss_type == "mse":
+                    loss =0.*loss + self.loss(preds,label)
+                else: # self.loss_type == "mse"
+                    loss = loss
+    
                 loss_value.append(loss.item())
 
                 preds = preds.squeeze().cpu().detach().numpy()
@@ -223,10 +254,12 @@ class REC_Processor(Processor):
                 l2_value.append(L2)
                 relative_l2_value.append(RL2)
                 label_frag.append(label)
-
+                torch.cuda.empty_cache()
+                
         self.result = np.concatenate(result_frag)
         if evaluation:
             self.label = np.concatenate(label_frag)
+            self.epoch_info['loss_type']= self.loss_type
             self.epoch_info['mean_loss']= np.mean(loss_value)
             self.epoch_info['mean_spearmanr_rho_loss'],self.epoch_info['mean_spearmanr_p_loss'] = np.mean(spearmanr_value,axis = 0)
             self.epoch_info['mean_L2_loss']= np.mean(l2_value)

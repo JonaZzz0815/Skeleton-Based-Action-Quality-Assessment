@@ -210,8 +210,13 @@ def proc_single_label(score):
 
 def proc_mult_label(judge_scores):    
     # Each judge choose a score from [0, 0.5, ..., 9.5, 10], we normalize it into 0~20
-    tmp = [stats.norm.pdf(np.arange(21), loc=judge_score * (21-1) / 10, scale=5).astype(np.float32)
-            for judge_score in judge_scores]
+    tmp = []
+    for judge_score in judge_scores:
+        tmp.append(
+            stats.norm.pdf(np.arange(21), loc=float(judge_score) * (21-1) / 10, scale=7).astype(np.float32)
+        )
+    # tmp = [stats.norm.pdf(np.arange(21), loc=float(judge_score) * (21-1) / 10, scale=1.5).astype(np.float32)
+    #         for judge_score in judge_scores]
     tmp = np.stack(tmp)
     judges = tmp / tmp.sum(axis=-1, keepdims=True)  # 7x21
     return judges

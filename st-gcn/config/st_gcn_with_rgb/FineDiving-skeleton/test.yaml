@@ -14,6 +14,8 @@ test_feeder_args:
 
 # model
 model: net.st_gcn_with_rgb_i3d.Model
+judge_type: single
+loss_type: mix1
 model_args:
   in_channels: 3
   # ???????

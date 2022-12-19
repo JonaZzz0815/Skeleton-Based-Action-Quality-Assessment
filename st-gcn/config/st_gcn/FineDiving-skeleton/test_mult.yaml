@@ -13,6 +13,8 @@ test_feeder_args:
 
 # model
 model: net.st_gcn.Model
+judge_type: mult
+loss_type: mse
 model_args:
   in_channels: 3
   # ???????
